@@ -1,122 +1,112 @@
+#ifndef BOX_VISUALIZER_H
+#define BOX_VISUALIZER_H
+
 #include <string.h>
 #include <iostream>
-
-#include <torch/torch.h>
-#include <torch/script.h>
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/opencv.hpp>
 
-
-
-
-/*
-== = INPUT INFO == =
-Input 0: input
-Shape : [-1, 3, 224, 224]
-Type : float32
-
-== = OUTPUT INFO == =
-Output 0 : xyz_x21
-Shape : [-1, 63]
-Type : float32
-
-Output 1 : hand_score
-Shape : [-1, 1]
-Type : float32
-
-Output 2 : lefthand_0_or_righthand_1
-Shape : [-1, 1]
-Type : float32
-*/
-
-struct Outputs{
-	std::vector<float> landmarks;
-	std::vector<float> hand_score;
-	std::vector<float> hand_type;
+struct Onnx_Outputs{
+    std::vector<float> landmarks;
+    std::vector<float> hand_type;
+    std::vector<float> hand_score;
 };
 
-class Onnx_loader {
+
+
+class Onnx_loader{
 private:
-	const ORTCHAR_T* model_path = L"D:/cpp_project/Mediapipe_practice/models/hand_landmark_sparse_Nx3x224x224.onnx";
-	Ort::SessionOptions session_options;
-	Ort::Env env;
-	Ort::Value input_tensor;
-	cv::Mat input_data;
-	Outputs result_data;
-	Ort::Session session{ env, L"model.onnx", session_options };
+    const ORTCHAR_T* model_path = L"D:/cpp_project/Mediapipe_practice/models/hand_landmark_sparse_Nx3x224x224.onnx";
+    Ort::SessionOptions session_options;
+    Ort::Env env;
+    Ort::Session session;
+    Ort::MemoryInfo memory_info;
+    std::vector<float> input_buffer;
+    std::vector<int64_t> input_shape = { 1, 3, 224, 224 };
 
-	std::vector<float> reshapeToNCHW(const cv::Mat& image) {
-		// 채널 분리 후 재배열
-		std::vector<cv::Mat> channels;
-		cv::split(image, channels);
+    // 성능 최적화: 디버그 출력 제거, 인라인 처리
+    std::vector<float> reshapeToNCHW(const cv::Mat& image) {
+        std::vector<cv::Mat> channels;
+        cv::split(image, channels);
 
-		std::vector<float> result;
-		result.reserve(1 * 3 * 224 * 224);
+        std::vector<float> result;
+        result.reserve(3 * 224 * 224);
 
-		// NCHW 순서: N=1, C=3, H=224, W=224
-		for (int c = 0; c < 3; c++) {
-			float* ptr = (float*)channels[c].data;
-			result.insert(result.end(), ptr, ptr + 224 * 224);
-		}
-
-		return result;  // [1, 3, 224, 224] 형태
-	}
-
+        for (int c = 0; c < 3; c++) {
+            float* ptr = (float*)channels[c].data;
+            result.insert(result.end(), ptr, ptr + 224 * 224);
+        }
+        return result;
+    }
 
 public:
-	Onnx_loader() {}
+    Onnx_loader() :
+        env(ORT_LOGGING_LEVEL_WARNING, "HandLandmark"),
+        session(env, model_path, session_options),
+        memory_info(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)),
+        input_buffer(3 * 224 * 224) {
 
-	void get_data(cv::Mat frame ) {
-		std::vector<float> reshaped_image;
+        session_options.SetIntraOpNumThreads(1);
+        session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+    }
 
-		//frame preprocessing
-		input_data = frame;
-		cv::resize(frame, input_data, cv::Size(224, 224));
-		cv::cvtColor(input_data, input_data, cv::COLOR_BGR2RGB);
-		input_data.convertTo(input_data, CV_32F, 1.0 / 255.0);
+    void get_data(cv::Mat frame) {
 
-		// 메모리 정보
-		auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-		reshaped_image = reshapeToNCHW(input_data);
+        if (frame.empty()) {
+            std::cerr << "ERROR: 입력 프레임이 비어있습니다!" << std::endl;
+            return;
+        }
 
-		// 텐서 생성
-		std::vector<int64_t> input_shape = { 1, 3, 224, 224 };
-		input_tensor = Ort::Value::CreateTensor<float>(
-			memory_info,
-			reshaped_image.data(),
-			reshaped_image.size(),
-			input_shape.data(),
-			input_shape.size()
-		);
+        if (frame.rows == 0 || frame.cols == 0) {
+            std::cerr << "ERROR: 프레임 크기가 0입니다: " << frame.size() << std::endl;
+            return;
+        }
+        cv::Mat processed;
+        cv::resize(frame, processed, cv::Size(224, 224));
+        cv::cvtColor(processed, processed, cv::COLOR_BGR2RGB);
+        processed.convertTo(processed, CV_32F, 1.0 / 255.0);
 
-	}
+        std::cout << "크기 (Size): " << processed.size() <<std::endl;
+        std::cout << "자료형 (type): " << processed.type() << std::endl;
+        std::cout << "채널 (channel): " << processed.channels() << std::endl;
+        input_buffer = reshapeToNCHW(processed);
+    }
 
-	Outputs pred_pose() {
-		std::vector<const char*> input_names = { "input" };
-		std::vector<const char*> output_names = { 
-			"xyz_x21",                    // 손 랜드마크 좌표 [batch, 63]
-			"hand_score",                 // 손 감지 점수 [batch, 1]  
-			"lefthand_0_or_righthand_1"   // 왼손(0)/오른손(1) [batch, 1]
-		};
+    Onnx_Outputs pred_pose() {
+        // 텐서 생성
+        std::cout << "추론 함수 호출!!" << std::endl;
+        auto input_tensor = Ort::Value::CreateTensor<float>(
+            memory_info,
+            input_buffer.data(),
+            input_buffer.size(),
+            input_shape.data(),
+            input_shape.size()
+        );
 
-		// 추론 실행
-		auto result = session.Run(Ort::RunOptions{},
-			input_names.data(), &input_tensor, 1,
-			output_names.data(), 3);
+        const char* input_names[] = { "input" };
+        const char* output_names[] = { "xyz_x21", "hand_score", "lefthand_0_or_righthand_1" };
 
-		float* landmarks_ptr = result[0].GetTensorMutableData<float>();
-		float* score_ptr = result[1].GetTensorMutableData<float>();
-		float* type_ptr = result[2].GetTensorMutableData<float>();
+        auto results = session.Run(Ort::RunOptions{},
+            input_names, &input_tensor, 1,
+            output_names, 3);
 
-		size_t landmarks_size = result[0].GetTensorTypeAndShapeInfo().GetElementCount();
-		size_t score_size = result[1].GetTensorTypeAndShapeInfo().GetElementCount();
-		size_t type_size = result[2].GetTensorTypeAndShapeInfo().GetElementCount();
-		
-		result_data.landmarks.assign(landmarks_ptr, landmarks_ptr + landmarks_size);
-		result_data.hand_score.assign(score_ptr, score_ptr + score_size);
-		result_data.hand_type.assign(type_ptr, type_ptr + type_size);
-		
-		return result_data;
-	}
+        Onnx_Outputs output;
 
+        // 결과 복사
+        auto landmarks_size = results[0].GetTensorTypeAndShapeInfo().GetElementCount();
+        auto score_size = results[1].GetTensorTypeAndShapeInfo().GetElementCount();
+        auto type_size = results[2].GetTensorTypeAndShapeInfo().GetElementCount();
+
+        float* landmarks_ptr = results[0].GetTensorMutableData<float>();
+        float* score_ptr = results[1].GetTensorMutableData<float>();
+        float* type_ptr = results[2].GetTensorMutableData<float>();
+
+        output.landmarks.assign(landmarks_ptr, landmarks_ptr + landmarks_size);
+        output.hand_score.assign(score_ptr, score_ptr + score_size);
+        output.hand_type.assign(type_ptr, type_ptr + type_size);
+
+        return output;
+    }
 };
+
+#endif
