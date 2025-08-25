@@ -76,13 +76,7 @@ public:
             hand_loc.y_point.push_back(int(temp_y));
         }
 
-        std::cout << "=== Hand Data Monitor ===" << std::endl;
-        std::cout << "Hand Type: " << (hand_direction == 0 ? "Left" : "Right") << std::endl;
-        std::cout << "Hand Score: " << hand_score << std::endl;
-        std::cout << "Points Count: " << hand_loc.x_point.size() << std::endl;
-        std::cout << "First Point: (" << hand_loc.x_point[0] << ", " << hand_loc.y_point[0] << ")" << std::endl;
-        std::cout << "Last Point: (" << hand_loc.x_point[20] << ", " << hand_loc.y_point[20] << ")" << std::endl;
-        std::cout << "=========================" << std::endl;
+
 
     }
 
@@ -144,11 +138,15 @@ public:
  
     }
 
+
+
     cv::Mat process(){
         if (hand_score > 0.4) {
             this->drawbox();
             this->drawskeleton();
         }
+
+
         return img;
     }
 

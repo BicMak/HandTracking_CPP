@@ -1,3 +1,4 @@
+#pragma once
 
 #include <windows.h>
 #include <string.h>
@@ -5,13 +6,11 @@
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/opencv.hpp>
 
-
 #include "OnnxModel.h"
-
+#include "OnnxYolo.h"
 
 struct normal_point_locset {
-    float x_point;
-    float y_point;
+    cv::Vec2f vec;
 };
 
 class Mouse_event {
@@ -20,12 +19,18 @@ private:
     int screen_width;
     int screen_height;
     cv::Mat img;
-    //스크린 정보
-    std::vector<normal_point_locset> hand_normal_loc;
-    int hand_direction;
-    float hand_score;
     
+    //좌표 정보
+    std::vector<normal_point_locset> hand_normal_loc;
+    int hand_id;
+    float hand_score;
     POINT cursorPos;
+    std::vector<double> tip_dist;
+
+    //event code
+    std::string envet_code;
+    bool left_click_flag;
+    double fist_start_time;
 
 
 
@@ -36,33 +41,117 @@ public:
         screen_height = GetSystemMetrics(SM_CYSCREEN);
     }
 
-    void updatehandpos(Onnx_Outputs onnx_data) {
+    void updatehandpos(Onnx_Outputs onnx_data,
+                       Detection onnx_yolodata) {
         normal_point_locset temp;
 
         hand_normal_loc.clear();
 
-        hand_direction = (int)onnx_data.hand_type[0];
-        hand_score = onnx_data.hand_score[0];
+        hand_score = onnx_yolodata.confidence;
+        hand_id = onnx_yolodata.class_id;
 
         // Normalize Point coordinates
         for (int i = 0; i < 21; i++) {
             int idx1 = 3 * i;
             int idx2 = 3 * i + 1;
-            temp.x_point = (1 - onnx_data.landmarks[idx1] / 224);
-            temp.y_point = (onnx_data.landmarks[idx2] / 224);
+            temp.vec =  cv::Vec2f((1 - onnx_data.landmarks[idx1] / 224),
+                                  (onnx_data.landmarks[idx2] / 224) );
             hand_normal_loc.push_back(temp);
         }
-
     }
 
-    void drawbox() {
+    void mouse_moving() {
 
+        static float DEAD_ZONE = 3.0f;
+        static float ALPHA = 0.25f;
+
+        static float smooth_x = -1, smooth_y = -1;
+        static int cursor_x, cursor_y;
+
+        float raw_x = screen_width * hand_normal_loc[8].vec[0];
+        float raw_y = screen_height * hand_normal_loc[8].vec[1];
+
+        if (smooth_x < 0) {
+            smooth_x = raw_x;
+            smooth_y = raw_y;
+            cursor_x = (int)raw_x;
+            cursor_y = (int)raw_y;
+            SetCursorPos(cursor_x, cursor_y);
+            return;
+        }
+
+        // 스무딩 적용
+        smooth_x = smooth_x * (1.0f - ALPHA) + raw_x * ALPHA;
+        smooth_y = smooth_y * (1.0f - ALPHA) + raw_y * ALPHA;
+
+        // 데드존 체크
+        float dx = smooth_x - cursor_x;
+        float dy = smooth_y - cursor_y;
+        float distance = sqrt(dx * dx + dy * dy);
+
+        if (distance > DEAD_ZONE) {
+            cursor_x = (int)smooth_x;
+            cursor_y = (int)smooth_y;
+            SetCursorPos(cursor_x, cursor_y);
+        }
+    }
+
+    void mouse_lefton() {
+        static int click_cnt = 0;
+        if (left_click_flag == FALSE) {
+            click_cnt += 1;
+            if (click_cnt > 3) {
+                left_click_flag = TRUE;
+                mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                click_cnt = 0;
+            }
+            
+        }
+        else {
+            return;
+        }
+        
+    }
+
+    void mouse_leftoff() {
+        static int click_cnt = 0;
+        if (left_click_flag) {
+            click_cnt += 1;
+            if (click_cnt > 2) {
+                left_click_flag = FALSE;
+                mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                click_cnt = 0;
+            }
+            
+        }
+        else {
+            return;
+        }
+        
     }
 
     void process() {
-        int mouse_x = screen_width * hand_normal_loc[8].x_point;
-        int mouse_y = screen_width * hand_normal_loc[8].y_point;
-        SetCursorPos(mouse_x, mouse_y);
+        if (hand_score > 0.4) {
+            switch (hand_id) {
+            case 19:
+                mouse_moving();
+                break;
+            case 11:
+                mouse_moving();
+                break;
+            case 14:
+                mouse_lefton();
+                break;
+            case 20:
+                mouse_leftoff();
+                break;
+            default:
+                break;
+                
+            }
+            
+        }
     }
 
 };
+

@@ -33,7 +33,7 @@ add_executable(Mediapipe_practice
     "Mediapipe_practice.cpp" 
     
     "OnnxModel.h"
- "box_visualizer.h" "Mouse_event.h")
+ "box_visualizer.h" "Mouse_event.h" "OnnxYolo.h" )
 
 # 헤더 파일 경로 추가 (추가된 부분)
 target_include_directories(Mediapipe_practice PRIVATE ${ONNXRUNTIME_INCLUDE_DIRS})
