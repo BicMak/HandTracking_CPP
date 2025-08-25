@@ -51,7 +51,7 @@ private:
     * Converts OpenCV's HWC (Height-Width-Channel) format to
     * NCHW (Batch-Channel-Height-Width) format required by ONNX model.
     *
-    * @param image Preprocessed input image (224x224x3, CV_32F)
+    * @param image Preprocessed input image (anyzise, CV_32F)
     * @return result NCHW format float vector (1x3x224x224, float)
     */
     std::vector<float> reshapeToNCHW(const cv::Mat& image) {

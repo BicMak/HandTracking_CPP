@@ -6,13 +6,35 @@
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/opencv.hpp>
 
-
+/**
+ * @brief To save result predicted data and return at once
+ *
+ * @details
+ * - x: bounding box x-center
+ * - y: bounding box x-center
+ * - w: bounding box width
+ * - h: bounding box height
+ * - confidence: detection confidence score (0.0 ~ 1.0)
+ * - class_id: save classificated hand gesture
+ */
 struct Detection {
-    float x, y, w, h;           // bbox
-    float confidence;           // 최고 클래스 확률
-    int class_id;              // 클래스 ID
+    float x, y, w, h;         
+    float confidence;       
+    int class_id;             
 };
 
+/**
+ * @brief ONNX-based Hagrid YOLO v10 hand gesture detection class
+ *
+ * This class provides hand gesture detection functionality using the
+ * Hagrid YOLO v10n model. It leverages ONNX Runtime for cross-platform
+ * inference and supports real-time gesture recognition.
+ * (https://github.com/hukenovs/hagrid)
+ * 
+ * @author Marcus Kim
+ * @date 2025-08-25
+ * @version 1.0
+ */
 class Yolo_loader {
 private:
     const ORTCHAR_T* model_path = L"D:/cpp_project/Mediapipe_practice/models/yolo_hand_detection_Nx3x224x224.onnx";
@@ -29,7 +51,15 @@ private:
 
     std::vector<Detection> result_shape;
 
-    // 성능 최적화: 디버그 출력 제거, 인라인 처리
+    /**
+    * @brief Convert cv::Mat type to ONNX tensor input shape format
+    *
+    * Converts OpenCV's HWC (Height-Width-Channel) format to
+    * NCHW (Batch-Channel-Height-Width) format required by ONNX model.
+    *
+    * @param image Preprocessed input image (anysize, CV_32F)
+    * @return result NCHW format float vector (1x3x640x640, float)
+    */
     std::vector<float> reshapeToNCHW(const cv::Mat& image) {
         std::vector<cv::Mat> channels;
         cv::split(image, channels);
@@ -55,6 +85,18 @@ public:
         session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
     }
 
+    /**
+    * @brief Acquire input image and store in ONNX model input buffer
+    *
+    * Preprocesses input image to meet MediaPipe model requirements:
+    * 1. Resize to 640x640
+    * 2. Convert BGR → RGB
+    * 3. Normalize [0,255] → [0,1]
+    * 4. Transform HWC → NCHW format
+    *
+    * @param frame Captured image from camera (any size, BGR, CV_8UC3)
+    * @return None (result stored in internal input_buffer)
+    */
     void get_data(cv::Mat frame) {
 
         if (frame.empty()) {
@@ -76,6 +118,19 @@ public:
         input_buffer = reshapeToNCHW(processed);
     }
 
+    /**
+     * @brief Perform inference on buffered image data
+     *
+     * Runs ONNX model inference and extracts hand landmark predictions:
+     * 1. Create input tensor from buffer
+     * 2. Execute model inference
+     * 3. Extract and convert output tensors to float vectors
+     *
+     * @param None
+     * @return Onnx_Outputs structure containing bboxes, class id, and confidence score 
+     *
+     * @pre get_data() must be called first to prepare input buffer
+     */
     Detection pred_pose() {
         try {
             //std::cout << "추론 함수 호출!!" << std::endl;
@@ -115,9 +170,19 @@ public:
         }
     }
 
-    // pred_pose() 함수 내에서 호출할 때:
-    // Detection return_value = this->SupressNonmax(results);
-
+    /**
+    * @brief Suppress non-maximum detections and return highest confidence bounding box
+    *
+    * Processes YOLO model inference results to find the detection with maximum confidence score.
+    * Filters out detections below confidence threshold (0.3) and returns the best detection.
+    *
+    * @param results YOLO model inference output tensor [1, 300, 6] format
+    *                Format: [x, y, w, h, confidence, class_id] for each detection
+    * @return Detection structure containing best bounding box with highest confidence
+    *
+    * @pre Model inference must be completed and results tensor must be valid
+    * @note Currently implements simplified NMS by selecting maximum confidence detection only
+    */
     Detection SupressNonmax(std::vector<Ort::Value>& results) {
         // 출력 텐서에서 데이터 포인터 가져오기
         float* output_data = results[0].GetTensorMutableData<float>();
