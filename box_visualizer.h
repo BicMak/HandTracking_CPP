@@ -9,14 +9,32 @@
 
 #include "OnnxModel.h"
 
+/**
+ * @brief To save result hand landmark xy position
+ *
+ * @details
+ * - x_point: land mark x axis location
+ * - y_point: land mark y axis location
+ */
 struct point_locset {
     std::vector<int> x_point;
     std::vector<int> y_point;
 };
 
+/**
+* @brief Visualizes bounding boxes and skeleton structures from inferred coordinate data
+*
+* Renders model predictions including skeletal structure and bounding box detection.
+* Bounding boxes are generated using min/max values from 21 coordinate points,
+* while skeletal structure is visualized by connecting joint points with lines.
+*
+* @author Marcus Kim
+* @date 2025-08-25
+* @version 1.0
+*/
 class BOX_DRAWING{
 private:
-    //Hand 마커간 인덱스 사전 고정
+    //Handmarker skeleton line index
     const std::array<std::array<int, 2>, 20> HAND_CONNECTIONS = { {
         {{0, 1}}, {{0, 5}}, {{0, 9}}, {{0, 13}}, {{0, 17}},
         {{1, 2}}, {{2, 3}}, {{3, 4}},
@@ -33,10 +51,12 @@ private:
     cv::Scalar LINE_COLOR = cv::Scalar(255, 0, 0);// 시안색  
     cv::Scalar TEXT_COLOR = cv::Scalar(255, 255, 255);     // 흰색
 
+    //image size and matrix
     int img_width;
     int img_height;
     cv::Mat img;
 
+    //predicted data
     point_locset hand_loc;
     int hand_direction;
     float hand_score;
@@ -45,6 +65,15 @@ private:
 
 
 public:
+    /**
+    * @brief Updates the input image and retrieves its dimensions
+    *
+    * Stores the captured camera frame and extracts image width and height.
+    * Validates that the input image is not empty before processing.
+    *
+    * @param input_img Captured image from camera (any size, BGR format, CV_8UC3)
+    * @return None
+    */
     void updateImage(const cv::Mat& input_img) {
         img = input_img;
 
@@ -60,6 +89,17 @@ public:
         }
     }
 
+    /**
+    * @brief Updates detected hand landmarks from inference results
+    *
+    * Processes ONNX model inference output and extracts hand landmark predictions.
+    * Converts output tensors to point structures and extracts only x,y coordinates.
+    *
+    * @param onnx_data MediaPipe inference result containing hand landmark data
+    * @return None
+    *
+    * @pre updateImage() must be called first to set the base image
+    */
     void updatehandpos(Onnx_Outputs onnx_data) {
         hand_loc.x_point.clear();
         hand_loc.y_point.clear();
@@ -80,6 +120,17 @@ public:
 
     }
 
+    /**
+    * @brief Draws bounding box around detected hand
+    *
+    * Renders bounding box with color coding based on hand position (left or right).
+    * Also displays hand label text above the bounding box.
+    *
+    * @param None
+    * @return None
+    *
+    * @pre updatehandpos() must be called before drawing
+    */
     void drawbox() {
         cv::Scalar color;
         std::string hand_text;
@@ -115,6 +166,17 @@ public:
                      cv::FONT_HERSHEY_SIMPLEX, fontScale, TEXT_COLOR, thickness);
     }
 
+    /**
+    * @brief Draws hand skeleton structure
+    *
+    * Renders hand skeleton by drawing joint points as circles and
+    * connecting them with lines based on hand connection patterns.
+    *
+    * @param None
+    * @return None
+    *
+    * @pre updatehandpos() must be called before drawing
+    */
     void drawskeleton() {
 
         for (int i = 0; i < 21; i++) {
@@ -139,13 +201,22 @@ public:
     }
 
 
-
+    /**
+    * @brief Processes and renders complete hand visualization
+    *
+    * Combines bounding box and skeleton drawing if hand confidence score
+    * exceeds threshold (0.4). Returns the final rendered image.
+    *
+    * @param None
+    * @return cv::Mat Rendered image with hand visualizations
+    *
+    * @pre updatehandpos() must be called before processing
+    */
     cv::Mat process(){
         if (hand_score > 0.4) {
             this->drawbox();
             this->drawskeleton();
         }
-
 
         return img;
     }

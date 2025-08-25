@@ -68,8 +68,14 @@ public:
         static float smooth_x = -1, smooth_y = -1;
         static int cursor_x, cursor_y;
 
-        float raw_x = screen_width * hand_normal_loc[8].vec[0];
-        float raw_y = screen_height * hand_normal_loc[8].vec[1];
+        static int center_x = screen_width / 2;
+        static int center_y = screen_height / 2;
+        
+        float offset_x = (hand_normal_loc[8].vec[0]-0.5)*2* screen_width;
+        float offset_y = (hand_normal_loc[8].vec[1]-0.5)*2* screen_height;
+
+        float raw_x = center_x + offset_x;
+        float raw_y = center_y + offset_y;
 
         if (smooth_x < 0) {
             smooth_x = raw_x;
@@ -100,7 +106,7 @@ public:
         static int click_cnt = 0;
         if (left_click_flag == FALSE) {
             click_cnt += 1;
-            if (click_cnt > 3) {
+            if (click_cnt > 0) {
                 left_click_flag = TRUE;
                 mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
                 click_cnt = 0;
@@ -117,7 +123,7 @@ public:
         static int click_cnt = 0;
         if (left_click_flag) {
             click_cnt += 1;
-            if (click_cnt > 2) {
+            if (click_cnt > 0) {
                 left_click_flag = FALSE;
                 mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
                 click_cnt = 0;
@@ -133,19 +139,14 @@ public:
     void process() {
         if (hand_score > 0.4) {
             switch (hand_id) {
-            case 19:
-                mouse_moving();
-                break;
-            case 11:
-                mouse_moving();
-                break;
             case 14:
                 mouse_lefton();
                 break;
             case 20:
                 mouse_leftoff();
                 break;
-            default:
+            case 11:
+                mouse_moving();
                 break;
                 
             }

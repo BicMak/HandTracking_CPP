@@ -1,4 +1,4 @@
-﻿#include <string.h>
+﻿#include <string>
 #include <filesystem>
 #include <ctime>
 #include <thread>
@@ -9,7 +9,7 @@
 #include <onnxruntime_cxx_api.h>
 
 #include <iostream>
-//#include "OnnxModel.h"
+#include "OnnxModel.h"
 #include "OnnxYolo.h"
 #include "box_visualizer.h"
 #include "Mouse_event.h"
@@ -83,7 +83,7 @@ int main() {
             });
 
         auto pipe_future = std::async(std::launch::async, [&]() {
-            MediaPipe_model.get_data(img);
+            MediaPipe_model.get_data(img); 
             return MediaPipe_model.pred_pose();
             });
 
@@ -92,26 +92,30 @@ int main() {
             return Yolo_model.pred_pose();
             });
 
-        //std::cout << "✅ 비동기 추론 시작됨" << std::endl;
+            //std::cout << "✅ 비동기 추론 시작됨" << std::endl;
 
-        // 결과 대기
+            // 결과 대기
         auto start_inference = std::chrono::high_resolution_clock::now();
         img_up_future.get();
         auto pipe_result = pipe_future.get();
+        auto pipe_result_backup = pipe_result; // deep copy mediapipe result
         auto yolo_result = yolo_future.get();
         auto end_inference = std::chrono::high_resolution_clock::now();
         auto inference_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_inference - start_inference).count();
 
-        box_visualizer.updatehandpos(pipe_result);
-        event_control.updatehandpos(pipe_result,yolo_result);
-           
+        auto visual_future = std::async(std::launch::async, [&]() {
+            box_visualizer.updatehandpos(pipe_result);
+            return flipped_img = box_visualizer.process();
 
-        flipped_img = box_visualizer.process();
-        event_control.process();
+            });
+
+        auto eventcont_future = std::async(std::launch::async, [&]() {
+            event_control.updatehandpos(pipe_result_backup, yolo_result);
+            event_control.process();
+            });
         
-
-
-
+        eventcont_future.get();
+        auto flipped_img = visual_future.get();
         finish = clock();
 
         double fps = (double)CLOCKS_PER_SEC/ (finish - start);
