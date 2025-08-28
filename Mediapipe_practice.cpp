@@ -100,6 +100,8 @@ int main() {
         auto pipe_result = pipe_future.get();
         auto pipe_result_backup = pipe_result; // deep copy mediapipe result
         auto yolo_result = yolo_future.get();
+
+
         auto end_inference = std::chrono::high_resolution_clock::now();
         auto inference_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_inference - start_inference).count();
 
