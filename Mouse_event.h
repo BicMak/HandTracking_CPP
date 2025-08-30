@@ -52,12 +52,14 @@
 #include <windows.h>
 #include <string.h>
 #include <iostream>
+#include <ctime>
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/opencv.hpp>
 
 #include "OnnxModel.h"
 #include "OnnxYolo.h"
 
+using TimePoint = std::chrono::high_resolution_clock::time_point;
 
 /**
  * @brief To save vector of point
@@ -84,6 +86,7 @@ private:
     std::vector<double> tip_dist;
     cv::Vec2f yolo_pivot;
     cv::Vec2f fingertip_pivot;
+
     cv::Vec2f bbox_curpose;
     cv::Vec2f starting_point;
 
@@ -91,7 +94,7 @@ private:
     std::string envet_code;
     cv::Vec2f current_pos;
     bool left_click_flag;
-    double fist_start_time;
+    TimePoint start_time = std::chrono::high_resolution_clock::now();;
 
     //curser Moving parameter
     float DEAD_ZONE = 3.0f;
@@ -131,8 +134,10 @@ public:
 
         hand_score = onnx_yolodata.confidence;
         hand_id = onnx_yolodata.class_id;
-        bbox_curpose[0] = onnx_yolodata.x;
-        bbox_curpose[1] = onnx_yolodata.y;
+        bbox_curpose[0] = (1-onnx_yolodata.x/640.0f);
+        bbox_curpose[1] = onnx_yolodata.y / 640.0f;
+        std::cout << bbox_curpose[0] << std::endl;
+        std::cout << bbox_curpose[1] << std::endl;
 
         // Normalize Point coordinates
         for (int i = 0; i < 21; i++) {
@@ -150,6 +155,8 @@ public:
      *
      * Processes MediaPipe hand landmark predictions and YOLO hand detection results:
      * 1. Extracts and stores YOLO bounding box center coordinates and hand class ID
+     *    - Yolo coordinates normalized to [0,1] range from 640x640 input
+     *    - Yolo X coordinates are horizontally flipped (1 - x/640)
      * 2. Normalizes MediaPipe joint coordinates (21 landmarks) with horizontal flip
      *    - Coordinates are normalized to [0,1] range from 224x224 input
      *    - X coordinates are horizontally flipped (1 - x/224)
@@ -159,8 +166,9 @@ public:
      */
     void mouse_moving() {
         
-        float offset_x = (hand_normal_loc[8].vec[0] - 0.5f) * 2 * screen_width;
-        float offset_y = (hand_normal_loc[8].vec[1] - 0.5f) * 2 * screen_height;
+        int scailer = 2;
+        float offset_x = (hand_normal_loc[8].vec[0] - 0.5f) * scailer * screen_width;
+        float offset_y = (hand_normal_loc[8].vec[1] - 0.5f) * scailer * screen_height;
         float raw_x = center_x + offset_x;
         float raw_y = center_y + offset_y;
 
@@ -173,7 +181,7 @@ public:
 
             // 🔧 fingertip_pivot도 드래그 중이 아닐 때만 업데이트
             if (!left_click_flag) {
-                fingertip_pivot = cv::Vec2f(cursor_x, cursor_y);
+                fingertip_pivot = cv::Vec2f(hand_normal_loc[8].vec[0], hand_normal_loc[8].vec[1]);
             }
 
             SetCursorPos(cursor_x, cursor_y);
@@ -193,7 +201,7 @@ public:
 
                 // 🔧 fingertip_pivot도 드래그 중이 아닐 때만 업데이트
                 if (!left_click_flag) {
-                    fingertip_pivot = cv::Vec2f(cursor_x, cursor_y);
+                    fingertip_pivot = cv::Vec2f(hand_normal_loc[8].vec[0], hand_normal_loc[8].vec[1]);
                 }
 
                 SetCursorPos(cursor_x, cursor_y);
@@ -204,82 +212,120 @@ public:
 
 
     /**
-     * @brief Control left mouse press with immediate click/drag classification
+     * @brief Control left mouse press with time-based click/drag classification
      *
-     * Determines user intent at the moment of gesture initiation and executes accordingly:
+     * Determines user intent based on gesture duration and executes accordingly:
      *
-     * **Click Classification** (immediate completion):
-     * - Detects rapid tap gestures based on hand movement patterns
-     * - Sends both MOUSEEVENTF_LEFTDOWN and MOUSEEVENTF_LEFTUP in single call
-     * - Completes interaction without requiring separate release gesture
+     * **Click Classification** (automatic completion):
+     * - Detects brief gestures (< 0.5s duration)
+     * - Automatically sends MOUSEEVENTF_LEFTUP in mouse_leftoff()
+     * - Completes interaction when gesture is released quickly
      *
      * **Drag Classification** (progressive operation):
-     * - Identifies sustained press gestures for drag-and-drop operations
-     * - Sends only MOUSEEVENTF_LEFTDOWN to begin drag state
-     * - Maintains drag tracking until corresponding mouse_leftoff() call
-     * - Updates cursor position continuously during drag progression
+     * - Identifies sustained press gestures (≥ 0.5s duration)
+     * - Enables continuous cursor tracking based on YOLO bbox center
+     * - Maintains drag state until corresponding mouse_leftoff() call
+     * - Updates cursor position in real-time during drag progression
      *
-     * **Classification Criteria**:
-     * - Hand stability: Low jitter indicates click intent
-     * - Gesture velocity: Quick in-out motion suggests tap
-     * - Movement prediction: Extrapolated trajectory analysis
-     * - Historical pattern: User behavior learning (optional)
+     * **Classification Logic**:
+     * - Initial gesture: Always sends MOUSEEVENTF_LEFTDOWN
+     * - After 500ms: Activates drag mode with cursor tracking with yolo bbox center pos
+     * - Cursor follows hand movement using absolute positioning
      *
-     * @note This approach prioritizes response speed over accuracy
-     * @warning Misclassification may result in unintended actions
-     * @see mouse_leftoff() for drag completion handling
+     * @note This approach uses time-based classification for simplicity
+     * @warning 500ms delay before drag activation may feel slightly sluggish
+     * @see mouse_leftoff() for drag completion and click finalization
      */
     void mouse_lefton() {
+        float scailer = 1.5;
+        auto current_time = std::chrono::high_resolution_clock::now();
+        
         if (left_click_flag == FALSE) {
             left_click_flag = TRUE;
             starting_point = fingertip_pivot;  // 화면 픽셀 좌표로 저장됨
+            start_time = std::chrono::high_resolution_clock::now();
+
             yolo_pivot = bbox_curpose;
             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
         }
-        else {
-            cv::Vec2f yolo_offset;
-            yolo_offset[0] = (bbox_curpose[0] - yolo_pivot[0]) * screen_width;
-            yolo_offset[1] = (bbox_curpose[1] - yolo_pivot[1]) * screen_height;
-            cv::Vec2f final_pos = starting_point + yolo_offset;
-            SetCursorPos((int)final_pos[0], (int)final_pos[1]);
+        else if (left_click_flag == TRUE) {
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                current_time - start_time
+            ).count();
+
+            if (duration >= 500) {
+                // 🔧 YOLO 바운딩박스 센터 기반 절대좌표 계산
+                float offset_x = (bbox_curpose[0] - 0.5f) * scailer * screen_width;
+                float offset_y = (bbox_curpose[1] - 0.5f) * scailer * screen_height;
+
+                float raw_x = center_x + offset_x;
+                float raw_y = center_y + offset_y;
+
+                // 직접 커서 이동 
+                cursor_x = (int)raw_x;
+                cursor_y = (int)raw_y;
+                SetCursorPos(cursor_x, cursor_y);
+            }
         }
     }
 
     /**
-     * @brief Complete drag operation for sustained press gestures
+     * @brief Complete mouse operations (both click and drag)
      *
-     * Handles drag completion only - click operations are completed in mouse_lefton():
+     * Handles final LEFTUP event for all mouse interactions:
+     *
+     * **Click Completion**:
+     * - Sends MOUSEEVENTF_LEFTUP for brief gestures (< 0.5s)
+     * - Completes click operation that started in mouse_lefton()
+     * - Quick tap gestures result in standard click behavior
      *
      * **Drag Completion**:
      * - Sends MOUSEEVENTF_LEFTUP to finalize drag-and-drop operation
+     * - Completes drag operation after sustained gesture (≥ 0.5s)
      * - Resets drag tracking flags and clears temporary state
-     * - Provides drag operation feedback to user
      *
-     * **Click Handling**:
-     * - No action taken for click gestures (already completed)
-     * - Safely ignores calls when no active drag operation exists
+     * **Common Functionality**:
+     * - Always resets left_click_flag to FALSE
+     * - Provides operation completion feedback
+     * - Safely handles calls when no active operation exists
      *
-     * @note Only processes drag operations - clicks are handled entirely in mouse_lefton()
-     * @see mouse_lefton() for click handling and drag initiation
+     * @note This function handles LEFTUP for both clicks and drags
+     * @see mouse_lefton() for operation initiation and drag tracking
      */
     void mouse_leftoff() {
         if (left_click_flag) {
             left_click_flag = FALSE;
             mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-
-            // 🔧 디버깅 출력 (옵션)
             std::cout << "🖱️ 드래그 종료" << std::endl;
         }
-        // else 구문과 return 제거 - 불필요함
+
     }
 
 
     /**
-    * @brief processing the mouse action
+    * @brief Process hand gesture recognition and execute corresponding mouse actions
     *
-    * if yolo hand detection class score is higher than threshold.
-    * then control the mouse
+    * Main processing pipeline that interprets YOLO hand detection results and
+    * triggers appropriate mouse control functions based on gesture classification:
     *
+    * **Gesture-to-Action Mapping**:
+    * - Class 11/19 (Pointing): Cursor movement via mouse_moving()
+    * - Class 14 (Fist): Mouse press/drag initiation via mouse_lefton()
+    * - Class 20 (Open Palm): Mouse release/operation completion via mouse_leftoff()
+    *
+    * **Quality Control**:
+    * - Minimum confidence threshold: 0.4 (40%)
+    * - Low confidence gestures are ignored to prevent false triggers
+    * - Active drag operations are safely terminated if hand detection fails
+    *
+    * **Safety Features**:
+    * - Automatic drag termination on detection loss
+    * - Prevents stuck drag states from unstable hand tracking
+    * - Graceful degradation when hand visibility is poor
+    *
+    * @note This function should be called once per frame in the main loop
+    * @warning Confidence threshold (0.4) may need adjustment based on lighting conditions
+    * @see mouse_moving(), mouse_lefton(), mouse_leftoff() for individual gesture handlers
     */
     void process() {
         if (hand_score > 0.4) {
