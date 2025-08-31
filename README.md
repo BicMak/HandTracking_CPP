@@ -1,6 +1,5 @@
 # Gesture-based Mouse Control
 
-![2025_8_30](https://github.com/user-attachments/assets/d486d9f2-39d5-4e6d-bb02-11e942110310)
 https://www.youtube.com/watch?v=1VTc5y_urDM
 
 ## Overview
