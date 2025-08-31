@@ -1,58 +1,10 @@
-
-/**
- * @file Mouse_event.h
- * @brief Hand gesture-based mouse control system
- *
- * =============================================================================
- * 🔧 TODO: 클릭/드래그 분기 시점 변경 작업 (누를 때 분기로 수정)
- * =============================================================================
- *
- * 현재 상태: 뗄 때 분기 방식 (mouse_leftoff에서 클릭/드래그 판단)
- * 목표 상태: 누를 때 분기 방식 (mouse_lefton에서 즉시 판단)
- *
- * 📋 수정해야 할 함수들:
- * ┌─────────────────────────────────────────────────────────────────────┐
- * │ 1. mouse_lefton()  - 메인 수정 대상                                │
- * │    • predict_user_intent() 함수 구현 필요                          │
- * │    • 클릭 예측시: LEFTDOWN+LEFTUP 동시 실행                        │
- * │    • 드래그 예측시: LEFTDOWN만 실행 (기존 로직 유지)               │
- * │                                                                     │
- * │ 2. mouse_leftoff() - 단순화 필요                                   │
- * │    • 드래그 완료만 처리 (클릭은 lefton에서 이미 완료됨)            │
- * │    • left_click_flag 체크 후 LEFTUP만 실행                         │
- * │                                                                     │
- * │ 3. predict_user_intent() - 새로 구현 필요                          │
- * │    • 손 안정성, 움직임 속도 분석                                   │
- * │    • CLICK_INTENT vs DRAG_INTENT 반환                              │
- * └─────────────────────────────────────────────────────────────────────┘
- *
- * 🎯 예측 알고리즘 아이디어:
- * ┌─────────────────────────────────────────────────────────────────────┐
- * │ • 손 안정성: hand_normal_loc 좌표 변화량 분석                      │
- * │ • 움직임 속도: 이전 프레임과의 위치 차이                           │
- * │ • 제스처 지속시간: 얼마나 빨리 들어왔는지                          │
- * │ • 임계값: 안정적이고 빠르면 클릭, 아니면 드래그                    │
- * └─────────────────────────────────────────────────────────────────────┘
- *
- * ⚠️  주의사항:
- * • 예측 실패시 의도와 다른 동작 발생 (클릭인데 드래그, 드래그인데 클릭)
- * • 애매하면 DRAG_INTENT로 기본 설정 (더 안전함)
- * • 디버깅용 출력문으로 예측 정확도 모니터링 필요
- *
- * 📊 기대 효과:
- * • 클릭 반응속도 향상 (즉시 완료)
- * • 사용자 경험 개선 (빠른 피드백)
- * • 코드 복잡도 증가 (예측 로직 추가)
- *
- * =============================================================================
- */
-
 #pragma once
 
 #include <windows.h>
 #include <string.h>
 #include <iostream>
 #include <ctime>
+#include <algorithm>
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/opencv.hpp>
 
@@ -62,15 +14,30 @@
 using TimePoint = std::chrono::high_resolution_clock::time_point;
 
 /**
- * @brief To save vector of point
- *
- * @details
- * - vec : normalize hand result vector(x,y)
- */
+* @brief Structure to store normalized hand landmark coordinates
+*
+* @details This structure holds a single normalized 2D point representing
+* hand landmark positions. The coordinates are typically normalized to [0,1] range
+* where (0,0) represents the top-left corner and (1,1) represents the bottom-right
+* corner of the detection frame.
+*
+* @param vec Normalized 2D vector containing (x, y) coordinates of a hand landmark point
+*/
 struct normal_point_locset {
     cv::Vec2f vec;
 };
 
+
+/**
+ * @brief Controls mouse cursor using Windows API
+ *
+ * This class receives MediaPipe hand landmark detection results
+ * and translates them into mouse movements and clicks.
+ *
+ * @author Marcus Kim
+ * @date 2025-08-31
+ * @version 1.0
+ */
 class Mouse_event {
 private:
     //screen infomation
@@ -106,6 +73,14 @@ private:
     int cursor_y = 0;
 
 public:
+    /**
+     * @brief Constructor for Mouse_event class
+     *
+     * Initializes the mouse event handler by:
+     * - Getting current cursor position
+     * - Retrieving main screen dimensions
+     * - Calculating screen center coordinates for reference
+     */
     Mouse_event() {
         GetCursorPos(&cursorPos);
         screen_width = GetSystemMetrics(SM_CXSCREEN);
@@ -176,8 +151,8 @@ public:
         if (smooth_x < 0) {
             smooth_x = raw_x;
             smooth_y = raw_y;
-            cursor_x = (int)raw_x;
-            cursor_y = (int)raw_y;
+            cursor_x = (int)std::clamp(raw_x, 0.0f,(float)screen_width);
+            cursor_y = (int)std::clamp(raw_y, 0.0f, (float)screen_height);
 
             // 🔧 fingertip_pivot도 드래그 중이 아닐 때만 업데이트
             if (!left_click_flag) {
@@ -196,8 +171,8 @@ public:
             float distance = sqrt(dx * dx + dy * dy);
 
             if (distance > DEAD_ZONE) {
-                cursor_x = (int)smooth_x;
-                cursor_y = (int)smooth_y;
+                cursor_x = (int)std::clamp(smooth_x, 0.0f, (float)screen_width);
+                cursor_y = (int)std::clamp(smooth_y, 0.0f, (float)screen_height);
 
                 // 🔧 fingertip_pivot도 드래그 중이 아닐 때만 업데이트
                 if (!left_click_flag) {
@@ -261,9 +236,10 @@ public:
                 float raw_x = center_x + offset_x;
                 float raw_y = center_y + offset_y;
 
+
                 // 직접 커서 이동 
-                cursor_x = (int)raw_x;
-                cursor_y = (int)raw_y;
+                cursor_x = (int)std::clamp(raw_x, 0.0f, (float)screen_width);
+                cursor_y = (int)std::clamp(raw_y, 0.0f, (float)screen_height);
                 SetCursorPos(cursor_x, cursor_y);
             }
         }
@@ -272,17 +248,7 @@ public:
     /**
      * @brief Complete mouse operations (both click and drag)
      *
-     * Handles final LEFTUP event for all mouse interactions:
-     *
-     * **Click Completion**:
-     * - Sends MOUSEEVENTF_LEFTUP for brief gestures (< 0.5s)
-     * - Completes click operation that started in mouse_lefton()
-     * - Quick tap gestures result in standard click behavior
-     *
-     * **Drag Completion**:
-     * - Sends MOUSEEVENTF_LEFTUP to finalize drag-and-drop operation
-     * - Completes drag operation after sustained gesture (≥ 0.5s)
-     * - Resets drag tracking flags and clears temporary state
+     * Handles final LEFTUP event for all mouse interactions
      *
      * **Common Functionality**:
      * - Always resets left_click_flag to FALSE
