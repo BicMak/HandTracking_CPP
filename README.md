@@ -1,6 +1,8 @@
 # Gesture-based Mouse Control
 
-[![Demo Video](https://img.youtube.com/vi/1VTc5y_urDM/maxresdefault.jpg)](https://www.youtube.com/watch?v=1VTc5y_urDM)
+![KakaoTalk_20250831_221927089](https://github.com/user-attachments/assets/bec8ece9-cc44-427a-bf27-9ab84e738aec)
+
+[Demo Video](https://www.youtube.com/watch?v=1VTc5y_urDM)
 
 
 ## Overview
