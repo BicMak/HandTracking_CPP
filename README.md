@@ -1,6 +1,7 @@
 # Gesture-based Mouse Control
 
-https://www.youtube.com/watch?v=1VTc5y_urDM
+[![Demo Video](https://img.youtube.com/vi/1VTc5y_urDM/maxresdefault.jpg)](https://www.youtube.com/watch?v=1VTc5y_urDM)
+
 
 ## Overview
 This project enables mouse control through hand gestures by processing Mediapipe and Hagrid models in parallel.
