@@ -67,7 +67,12 @@ private:
     int input_height = 640;
     Ort::SessionOptions session_options;
     Ort::Env env;
-    Ort::Session session;
+    std::unique_ptr<Ort::Session> session;
+
+    cv::Mat resized_mat;
+    cv::Mat float_mat;
+
+
     Ort::MemoryInfo memory_info;
     std::vector<float> input_buffer;
     std::vector<int64_t> input_shape = { 1, 3, input_widht, input_height };
@@ -99,15 +104,37 @@ private:
         return result;
     }
 
+
+    void convertBGRToRGBFloat(const cv::Mat& bgr_src, cv::Mat& rgb_float_dst) {
+        const uint8_t* src = bgr_src.ptr<uint8_t>();
+        float* dst = rgb_float_dst.ptr<float>();
+        const int total_pixels = bgr_src.rows * bgr_src.cols;
+        const float scale = 1.0f / 255.0f;
+
+        for (int i = 0; i < total_pixels; i++) {
+            dst[i * 3 + 0] = src[i * 3 + 2] * scale;  // B→R
+            dst[i * 3 + 1] = src[i * 3 + 1] * scale;  // G→G
+            dst[i * 3 + 2] = src[i * 3 + 0] * scale;  // R→B
+        }
+    }
 public:
     Yolo_loader() :
         env(ORT_LOGGING_LEVEL_WARNING, "HandDetect"),
-        session(env, model_path, session_options),
         memory_info(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)),
         input_buffer(3 * input_height * input_widht) {
 
-        session_options.SetIntraOpNumThreads(4);
-        session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+        resized_mat = cv::Mat(input_height, input_widht, CV_8UC3);
+        float_mat = cv::Mat(input_height, input_widht, CV_32FC3);
+        // SessionOptions 설정 (기존 코드 그대로)
+        session_options.SetIntraOpNumThreads(8);
+        session_options.SetInterOpNumThreads(4);
+        session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+        session_options.SetExecutionMode(ExecutionMode::ORT_PARALLEL);
+        session_options.EnableCpuMemArena();
+        session_options.EnableMemPattern();
+
+        // ✅ Session 생성 (기존 코드 살짝 수정)
+        session = std::make_unique<Ort::Session>(env, model_path, session_options);
     }
 
     /**
@@ -129,18 +156,11 @@ public:
             return;
         }
 
-        if (frame.rows == 0 || frame.cols == 0) {
-            std::cerr << "ERROR: 프레임 크기가 0입니다: " << frame.size() << std::endl;
-            return;
-        }
-        cv::Mat processed;
-        cv::resize(frame, processed, cv::Size(input_widht, input_height));
-        std::cout << processed.size() << std::endl;
+        cv::resize(frame, resized_mat, cv::Size(input_widht, input_height));
 
-        cv::cvtColor(processed, processed, cv::COLOR_BGR2RGB);
-        processed.convertTo(processed, CV_32F, 1.0 / 255.0);
+        convertBGRToRGBFloat(resized_mat, float_mat);
 
-        input_buffer = reshapeToNCHW(processed);
+        input_buffer = reshapeToNCHW(float_mat);
     }
 
     /**
@@ -157,7 +177,7 @@ public:
      * @pre get_data() must be called first to prepare input buffer
      */
     Detection pred_pose() {
-        try {
+
             //std::cout << "추론 함수 호출!!" << std::endl;
             auto input_tensor = Ort::Value::CreateTensor<float>(
                 memory_info,
@@ -172,7 +192,7 @@ public:
             const char* output_names[] = { "output0" };  // 또는 실제 출력 이름
 
             //std::cout << "추론 시작..." << std::endl;
-            auto results = session.Run(Ort::RunOptions{},
+            auto results = session->Run(Ort::RunOptions{},
                 input_names, &input_tensor, 1,
                 output_names, 1);  // 이제 일치함
             //std::cout << "추론 완료!" << std::endl;
@@ -184,15 +204,7 @@ public:
             Detection return_value = this->SupressNonmax(results);
             //std::cout << "Class: " << return_value.class_id << std::endl;
             return return_value;
-        }
-        catch (const Ort::Exception& e) {
-            std::cerr << "ONNX Runtime 에러: " << e.what() << std::endl;
-            return Detection{};  // 기본 Detection 반환
-        }
-        catch (const std::exception& e) {
-            std::cerr << "일반 에러: " << e.what() << std::endl;
-            return Detection{};  // 기본 Detection 반환
-        }
+
     }
 
     /**
