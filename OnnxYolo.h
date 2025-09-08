@@ -8,7 +8,7 @@
 *    
 *   SetIntraOpNumThreads : 단일 노드 내부에서 병렬처리
 *   SetInterOpNumThreads : 독립적인 연산을 병렬처리
-*   --------------EXAMPLE
+*   --------------EXAMPLE---------------------------
 *     신경망 그래프에서 독립적인 연산들
 *      Conv1 → ReLU1 ↘
 *                      → Concat → Output
@@ -16,6 +16,11 @@
 *      InterOp = 2라면:
 *      Thread A: Conv1 → ReLU1 실행
 *      Thread B: Conv2 → ReLU2 실행 (동시에!)
+*
+*
+* Todo : data input 확인해보기
+*    1. 매 호출마다 메모리공간을 새로할당하여 변수를 생성하는 과정 삭제 (static이든 미리만들든)
+*    2. cvt color와 normalize에 대한 최적화 연산하기
 */
 
 #pragma once
