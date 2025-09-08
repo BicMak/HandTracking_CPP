@@ -108,18 +108,14 @@ private:
     }
 
     /**
-    * @brief Optimized BGR to RGB conversion with normalization
+    * @brief optimize cv::cvtcolor and normalize matrix
     *
-    * Combines color space conversion and pixel value normalization in a single pass
-    * for improved performance compared to separate cv::cvtColor and convertTo operations.
-    * Uses direct pointer access to eliminate OpenCV's runtime checks and branching.
+    * Converts OpenCV's HWC (Height-Width-Channel) format to
+
     *
-    * @param bgr_src Input BGR image (CV_8UC3, any size)
-    * @param rgb_float_dst Output RGB normalized image (CV_32FC3, same size as input)
-    *
-    * @note Input and output matrices must have the same dimensions
-    * @note Performs normalization: [0,255] → [0.0,1.0] range
-    * @note Channel order conversion: BGR → RGB
+    * @param bgr_src (anysize, unit8_t)
+    * @param rgb_float_dst (anysize, float)
+    * @return result NCHW format float vector (1x3x640x640, float)
     */
     void convertBGRToRGBFloat(const cv::Mat& bgr_src, cv::Mat& rgb_float_dst) {
         const uint8_t* src = bgr_src.ptr<uint8_t>();
