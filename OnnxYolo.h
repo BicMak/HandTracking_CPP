@@ -1,3 +1,23 @@
+/*
+* Todo : Onnx session_options 다시 확인해보기
+*    
+*    Environment: 전역 ONNX 런타임 설정
+*    SessionOptions: 세션별 성능/동작 설정
+*    Session: 실제 모델 로드 (옵션 적용됨)
+*    MemoryInfo: 텐서 메모리 관리 (독립적)
+*    
+*   SetIntraOpNumThreads : 단일 노드 내부에서 병렬처리
+*   SetInterOpNumThreads : 독립적인 연산을 병렬처리
+*   --------------EXAMPLE
+*     신경망 그래프에서 독립적인 연산들
+*      Conv1 → ReLU1 ↘
+*                      → Concat → Output
+*      Conv2 → ReLU2 ↗
+*      InterOp = 2라면:
+*      Thread A: Conv1 → ReLU1 실행
+*      Thread B: Conv2 → ReLU2 실행 (동시에!)
+*/
+
 #pragma once
 
 #include <string>
