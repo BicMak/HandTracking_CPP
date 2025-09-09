@@ -59,29 +59,31 @@ int main() {
     std::cout << "Successfully opened video." << std::endl;
     std::cout << "Backend: " << capture.getBackendName() << std::endl;
     
+
     cv::Mat img;
     cv::Mat flipped_img;
     Onnx_Outputs result;
     bool run_yolo = TRUE;
 
     capture.set(cv::CAP_PROP_FPS, 30);
-    capture.set(cv::CAP_PROP_BRIGHTNESS, 0.5);
     capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-    capture.set(cv::CAP_PROP_FRAME_HEIGHT, 640);
+
 
 
     Detection cached_yolo_result{};
+    std::future<Detection> yolo_future;
+
+    float result_time = 1.0f;
     long long prev_inference_time = 0;
     while (1)
     {   
         start = clock();
-
         auto start_camera = std::chrono::high_resolution_clock::now();
         capture >> img;
         cv::flip(img, flipped_img, 1);
         auto end_camera = std::chrono::high_resolution_clock::now();
         auto camera_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_camera - start_camera).count();
-        std::future<Detection> yolo_future;
+
         //============================================================
         auto img_up_future = std::async(std::launch::async, [&]() {
             box_visualizer.updateImage(flipped_img);
@@ -99,7 +101,6 @@ int main() {
                 });
         }
 
-
         auto start_inference = std::chrono::high_resolution_clock::now();
         img_up_future.get();
         auto pipe_result = pipe_future.get();
@@ -108,8 +109,6 @@ int main() {
             cached_yolo_result = yolo_future.get();
         }
         
-
-
         auto end_inference = std::chrono::high_resolution_clock::now();
         auto inference_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_inference - start_inference).count();
 
@@ -137,8 +136,8 @@ int main() {
         duration << std::fixed << std::setprecision(2) << fps;
         std::string contents = duration.str() + "FPS";
 
-        cv::putText(flipped_img, contents, cv::Point(10, 50),
-            cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,0,0), 1);
+        cv::putText(flipped_img, std::to_string(1000/result_time), cv::Point(10, 50),
+            cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255,255,255), 1);
         cv::putText(flipped_img, std::to_string(cached_yolo_result.class_id), cv::Point(30, 100),
             cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 0), 1);
 
@@ -146,18 +145,20 @@ int main() {
         auto end_visual = std::chrono::high_resolution_clock::now();
         auto visual_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_visual - start_visual).count();
 
-
-
         if (cv::waitKey(1) == 27)
             break;
-       
+
         
+        result_time = (inference_time + prev_inference_time) / 2;
         std::cout << "📹 카메라: " << camera_time << "ms | "
-            << "🧠 추론: " << (float)(inference_time+ prev_inference_time)/2 << "ms | "
+            << "🧠 추론: " << result_time << "ms | "
             <<  "시각화: " << visual_time << "ms " << std::endl;
         prev_inference_time = inference_time;
 
+
         run_yolo = !run_yolo;
+
+
     }
 
 

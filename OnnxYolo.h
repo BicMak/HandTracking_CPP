@@ -195,7 +195,7 @@ public:
     Detection pred_pose() {
 
             //std::cout << "추론 함수 호출!!" << std::endl;
-            auto input_tensor = Ort::Value::CreateTensor<float>(
+        auto input_tensor = Ort::Value::CreateTensor<float>(
                 memory_info,
                 input_buffer.data(),
                 input_buffer.size(),
@@ -204,22 +204,22 @@ public:
             );
             //std::cout << "텐서 생성 완료" << std::endl;
 
-            const char* input_names[] = { "images" };
-            const char* output_names[] = { "output0" };  // 또는 실제 출력 이름
+        const char* input_names[] = { "images" };
+        const char* output_names[] = { "output0" };  
 
             //std::cout << "추론 시작..." << std::endl;
-            auto results = session->Run(Ort::RunOptions{},
-                input_names, &input_tensor, 1,
-                output_names, 1);  // 이제 일치함
+        auto results = session->Run(Ort::RunOptions{},
+                       input_names, &input_tensor, 1,
+                       output_names, 1);  
             //std::cout << "추론 완료!" << std::endl;
 
-            auto result_size = results[0].GetTensorTypeAndShapeInfo().GetElementCount();
-            float* result_ptr = results[0].GetTensorMutableData<float>();  // 타이포 수정
-            raw_output.assign(result_ptr, result_ptr + result_size);
+        auto result_size = results[0].GetTensorTypeAndShapeInfo().GetElementCount();
+        float* result_ptr = results[0].GetTensorMutableData<float>();  // 타이포 수정
+        raw_output.assign(result_ptr, result_ptr + result_size);
 
-            Detection return_value = this->SupressNonmax(results);
-            //std::cout << "Class: " << return_value.class_id << std::endl;
-            return return_value;
+        Detection return_value = this->SupressNonmax(results);
+        //std::cout << "Class: " << return_value.class_id << std::endl;
+        return return_value;
 
     }
 

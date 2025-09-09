@@ -64,8 +64,8 @@ private:
     TimePoint start_time = std::chrono::high_resolution_clock::now();;
 
     //curser Moving parameter
-    float DEAD_ZONE = 3.0f;
-    float ALPHA = 0.25f;
+    float DEAD_ZONE = 5.0f;
+    float ALPHA = 0.5f;
     float smooth_x = -1, smooth_y = -1;
     int center_x;
     int center_y;
@@ -212,7 +212,7 @@ public:
      * @see mouse_leftoff() for drag completion and click finalization
      */
     void mouse_lefton() {
-        float scailer = 1.5;
+        float scailer = 1.0;
         auto current_time = std::chrono::high_resolution_clock::now();
         
         if (left_click_flag == FALSE) {

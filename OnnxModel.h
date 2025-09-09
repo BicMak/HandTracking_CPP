@@ -45,6 +45,10 @@ private:
     std::vector<float> input_buffer;
     std::vector<int64_t> input_shape = { 1, 3, 224, 224 };
 
+    float hand_threshold = 0.1;
+    Onnx_Outputs output;
+    Onnx_Outputs buffer;
+
     /**
     * @brief Convert cv::Mat type to ONNX tensor input shape format
     *
@@ -77,6 +81,10 @@ public:
 
         session_options.SetIntraOpNumThreads(1);
         session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+
+        buffer.landmarks.resize(63, 0.0f);  // 21개 포인트 × 3좌표 = 63
+        buffer.hand_score.resize(1, 0.0f);
+        buffer.hand_type.resize(1, 0.0f);
     }
 
     /**
@@ -144,7 +152,7 @@ public:
             input_names, &input_tensor, 1,
             output_names, 3);
 
-        Onnx_Outputs output;
+        
 
         // copy the result
         auto landmarks_size = results[0].GetTensorTypeAndShapeInfo().GetElementCount();
@@ -155,9 +163,20 @@ public:
         float* score_ptr = results[1].GetTensorMutableData<float>();
         float* type_ptr = results[2].GetTensorMutableData<float>();
 
+
         output.landmarks.assign(landmarks_ptr, landmarks_ptr + landmarks_size);
         output.hand_score.assign(score_ptr, score_ptr + score_size);
         output.hand_type.assign(type_ptr, type_ptr + type_size);
+
+        if (*results[1].GetTensorMutableData<float>() >= hand_threshold) {
+            buffer.landmarks.assign(landmarks_ptr, landmarks_ptr + landmarks_size);
+            buffer.hand_score.assign(score_ptr, score_ptr + score_size);
+            buffer.hand_type.assign(type_ptr, type_ptr + type_size);
+        }
+        else {
+            output = buffer;
+        }
+
 
         return output;
     }

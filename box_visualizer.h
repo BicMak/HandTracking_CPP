@@ -211,7 +211,7 @@ public:
     * @pre updatehandpos() must be called before processing
     */
     cv::Mat process(){
-        if (hand_score > 0.4) {
+        if (hand_score > 0.2) {
             this->drawbox();
             this->drawskeleton();
         }
