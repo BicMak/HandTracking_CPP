@@ -1,8 +1,8 @@
 # Gesture-based Mouse Control
 
-![KakaoTalk_20250831_221927089](https://github.com/user-attachments/assets/bec8ece9-cc44-427a-bf27-9ab84e738aec)
+![clideo_editor_92fa2ce1c28c4a28a5cbe28d8820ebf1](https://github.com/user-attachments/assets/01a115ce-7a96-43cf-aec3-65f074f4220c)
 
-[Demo Video](https://www.youtube.com/watch?v=1VTc5y_urDM)
+[Demo Video](https://youtu.be/D1wN_NOcn58)
 
 
 ## Overview
