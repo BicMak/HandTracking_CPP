@@ -15,13 +15,13 @@ The system captures hand movements via video and translates them into correspond
 - **Hagrid (YOLOv10n)**: Recognizes various hand poses and gestures
 - **Integration**: Visualizes hand movements using Mediapipe's coordinate data while determining mouse actions through YOLO-detected poses
 
-## Overview
-## 📊 Performance Analysis Results (37 measurements)
+
+##  Performance Analysis Results (37 measurements)
 
 ### Average Processing Times by Component:
-- ** Camera**: 6.16ms (Range: 5-8ms)
-- ** Reasoning**: 39.19ms (Range: 25-51ms)  
-- ** Visualization**: 9.35ms (Range: 0-29ms)
+- **Camera**: 6.16ms (Range: 5-8ms)
+- **Reasoning**: 39.19ms (Range: 25-51ms)  
+- **Visualization**: 9.35ms (Range: 0-29ms)
 
 **Total Average Processing Time**: 54.70ms
 
