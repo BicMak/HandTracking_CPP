@@ -67,8 +67,30 @@ The reasoning component dominates the processing pipeline, accounting for over 7
 - Captures hand landmarks and gestures and visualizes the bounding box and finger joint points
 - Tracks fingertip positions
 
-## References
+Based on your gesture-based mouse control project documentation, here are the patch notes for version 1.1:
 
+## Patch Notes
+
+### Version 1.0 (Initial Release)
+- Initial release of gesture-based mouse control system
+- Implemented parallel processing of Mediapipe and Hagrid (YOLOv10n) models
+- Basic hand gesture recognition for mouse control:
+  - Point up: Move mouse cursor
+  - Fist: Left mouse click
+- Real-time hand landmark detection and visualization
+- Integrated bounding box and finger joint visualization
+- Average processing time: 54.70ms per frame
+
+### Version 1.1 (Performance Optimization Update)
+- **Enhanced Visualization System**: Updated visualization pipeline for improved rendering efficiency
+- **Smart Object Detection Skipping**: Added intelligent frame skipping for YOLO processing to reduce computational overhead
+- **YOLO Computation Optimization**: Implemented advanced optimization techniques for YOLOv10n inference
+- **Frame Rate Improvements**: Overall system optimization resulting in better frame rate performance
+- **Processing Pipeline Refinements**: Optimized parallel processing workflow for reduced latency
+
+**Performance Impact**: These optimizations significantly improve the real-time responsiveness of the gesture control system while maintaining accuracy in hand pose detection and mouse control functionality.
+
+## References
 
 ### Models & Frameworks
 - [Mediapipe](https://huggingface.co/STMicroelectronics/hand_landmarks) - Hand landmark detection
