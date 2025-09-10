@@ -45,7 +45,7 @@ private:
     std::vector<float> input_buffer;
     std::vector<int64_t> input_shape = { 1, 3, 224, 224 };
 
-    float hand_threshold = 0.1;
+    float hand_threshold = 0.0f;
     Onnx_Outputs output;
     Onnx_Outputs buffer;
 

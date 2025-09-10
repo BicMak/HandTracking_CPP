@@ -64,8 +64,8 @@ private:
     TimePoint start_time = std::chrono::high_resolution_clock::now();;
 
     //curser Moving parameter
-    float DEAD_ZONE = 5.0f;
-    float ALPHA = 0.5f;
+    float DEAD_ZONE = 10.0f;
+    float ALPHA = 0.15f;
     float smooth_x = -1, smooth_y = -1;
     int center_x;
     int center_y;

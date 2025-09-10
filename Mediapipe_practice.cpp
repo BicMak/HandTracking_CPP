@@ -69,9 +69,11 @@ int main() {
     capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);
 
 
-
     Detection cached_yolo_result{};
     std::future<Detection> yolo_future;
+    std::string class_str;
+    std::string contents;
+    std::string FPS_str;
 
     float result_time = 1.0f;
     long long prev_inference_time = 0;
@@ -134,12 +136,27 @@ int main() {
 
         std::ostringstream duration;
         duration << std::fixed << std::setprecision(2) << fps;
-        std::string contents = duration.str() + "FPS";
+        contents = duration.str() + "FPS";
+        FPS_str = to_string((int)(1000 / result_time)) + "FPS";
 
-        cv::putText(flipped_img, std::to_string(1000/result_time), cv::Point(10, 50),
+        if (cached_yolo_result.class_id == 11 || cached_yolo_result.class_id == 19) {
+            class_str = "Pointing";
+        }
+        else if (cached_yolo_result.class_id == 14) {
+            class_str = "Fist";
+        }
+        else if (cached_yolo_result.class_id == 20) {
+            class_str = "Open Palm";
+        }
+        else {
+            class_str = "None";
+        }
+
+        cv::putText(flipped_img, FPS_str, cv::Point(10, 50),
             cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255,255,255), 1);
-        cv::putText(flipped_img, std::to_string(cached_yolo_result.class_id), cv::Point(30, 100),
-            cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 0), 1);
+  
+        cv::putText(flipped_img, class_str, cv::Point(10, 100),
+            cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 1);
 
         imshow("camera img", flipped_img);
         auto end_visual = std::chrono::high_resolution_clock::now();
@@ -148,7 +165,6 @@ int main() {
         if (cv::waitKey(1) == 27)
             break;
 
-        
         result_time = (inference_time + prev_inference_time) / 2;
         std::cout << "📹 카메라: " << camera_time << "ms | "
             << "🧠 추론: " << result_time << "ms | "
