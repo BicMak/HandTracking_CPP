@@ -15,7 +15,25 @@ The system captures hand movements via video and translates them into correspond
 - **Hagrid (YOLOv10n)**: Recognizes various hand poses and gestures
 - **Integration**: Visualizes hand movements using Mediapipe's coordinate data while determining mouse actions through YOLO-detected poses
 
-The system operates at an average frame rate of 12 Hz, providing real-time gesture-to-mouse translation.
+## Overview
+## 📊 Performance Analysis Results (37 measurements)
+
+### Average Processing Times by Component:
+- ** Camera**: 6.16ms (Range: 5-8ms)
+- ** Reasoning**: 39.19ms (Range: 25-51ms)  
+- ** Visualization**: 9.35ms (Range: 0-29ms)
+
+**Total Average Processing Time**: 54.70ms
+
+### Performance Distribution:
+- **Camera**: 11.3% of total time
+- **Reasoning**: 71.6% of total time
+- **Visualization**: 17.1% of total time
+
+### Key Insights:
+The reasoning component dominates the processing pipeline, accounting for over 70% of the total execution time. Camera capture is highly consistent and efficient, while visualization time varies significantly (0-29ms) depending on whether rendering is needed.
+
+
 
 ## System Architecture Flow:
 
