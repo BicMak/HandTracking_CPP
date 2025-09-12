@@ -76,15 +76,16 @@ Based on your gesture-based mouse control project documentation, here are the pa
 - Implemented parallel processing of Mediapipe and Hagrid (YOLOv10n) models
 - Basic hand gesture recognition for mouse control:
   - Point up: Move mouse cursor
-  - Fist: Left mouse click
+  - Fist: Left mouse click on
+  - open palm : Left mouse click off
 - Real-time hand landmark detection and visualization
 - Integrated bounding box and finger joint visualization
-- Average processing time: 54.70ms per frame
+- Average processing time: about 95.00ms per frame
 
 ### Version 1.1 (Performance Optimization Update)
 - **Enhanced Visualization System**: Updated visualization pipeline for improved rendering efficiency
 - **Smart Object Detection Skipping**: Added intelligent frame skipping for YOLO processing to reduce computational overhead
-- **YOLO Computation Optimization**: Implemented advanced optimization techniques for YOLOv10n inference
+- **YOLO Computation Optimization**: Implemented advanced optimization techniques for YOLOv10m inference 
 - **Frame Rate Improvements**: Overall system optimization resulting in better frame rate performance
 - **Processing Pipeline Refinements**: Optimized parallel processing workflow for reduced latency
 
